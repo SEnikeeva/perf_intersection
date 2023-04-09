@@ -1,4 +1,7 @@
 {
-  "base_perf_path": "Perforation_archive.csv",
-  "model_perf_path": "MINN_15.12_SCH_saved_sch.inc"
+  "base_perf_path": "Perforation_archive_MINN.csv",
+  "model_perf_path": "Minny_PZ_saved_SCHEDULE.inc",
+  "min_date": null,
+  "max_date": null,
+  "grid_delta": 0
 }

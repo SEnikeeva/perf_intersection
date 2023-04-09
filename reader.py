@@ -1,20 +1,21 @@
 import logging
 import re
 
+import pandas as pd
 from dateutil import parser
 
-from helpers.utils import is_contains, to_dict
+from helpers.utils import is_contains, well_renaming, transliteration
 from services.read_service import read_df, processing_df
 
 
 def model_reader(path):
     def parse_date(part_):
         date_str = part_[part_.find('\n') + 1:part_.find('/')]
-        return parser.parse(date_str)
+        return parser.parse(date_str).date()
 
-    def parse_intervals(part_):
+    def parse_intervals(part_, date_):
         int_idxs = [m.start() for m in re.finditer('COMPDATMD', part_)]
-        intervals_ = {}
+        intervals_ = []
         if len(int_idxs) > 0:
             int_idxs.append(len(part_))
             for idx in range(len(int_idxs) - 1):
@@ -34,38 +35,53 @@ def model_reader(path):
                             if len(int_data_j) < 6:
                                 j += 1
                                 continue
-                            if intervals_.get(int_data_j[0][1:-1]) is None:
-                                intervals_[int_data_j[0][1:-1]] = int_data_j[1:]
-                            else:
-                                intervals_[int_data_j[0][1:-1]].append(int_data_j[1:])
+                            wn = transliteration(well_renaming(int_data_j[0][1:-1]))
+                            wn = wn.replace('_зак', '')
+
+                            intervals_.append(dict(well=wn,
+                                                   date=date_,
+                                                   top=int_data_j[2],
+                                                   bot=int_data_j[3],
+                                                   type=1 if int_data_j[5] == 'OPEN' else 0
+                                                   ))
                     j += 1
             return intervals_
 
         else:
-            return []
+            return {}
 
     with open(path, 'r') as f:
         perf_data = f.read()
     date_idxs = [m.start() for m in re.finditer('DATES', perf_data)] + [len(perf_data)]
-    model_perf = {}
+    model_perf = []
     for i in range(len(date_idxs) - 1):
         part = perf_data[date_idxs[i]: date_idxs[i + 1]]
         date = parse_date(part)
-        intervals = parse_intervals(part)
-        model_perf[date] = intervals
+        intervals = parse_intervals(part, date)
+        model_perf.extend(intervals)
+    model_perf = pd.DataFrame(model_perf)
+    model_perf.sort_values(by=['well', 'date'], ascending=True,
+                        inplace=True, kind='mergesort')
+    model_perf.reset_index(drop=True, inplace=True)
+    model_perf = model_perf[::-1]
+    model_perf.reset_index(drop=True, inplace=True)
+    model_perf['top'] = model_perf['top'].astype(float)
+    model_perf['bot'] = model_perf['bot'].astype(float)
+    model_perf['top'] = model_perf['top'].apply(round, args=(1,))
+    model_perf['bot'] = model_perf['bot'].apply(round, args=(1,))
     return model_perf
 
 
 def base_reader(path):
     perf_df = read_df(path)
     perf_df = processing_df(perf_df)
-    fields = ['well', 'type_perf', 'type', 'date', 'top', 'bot', 'layer']
+    fields = ['well', 'type_perf', 'type', 'date', 'top', 'bot', 'layer', 'level']
     for f in fields:
         if f not in perf_df.columns:
             logging.warning(f"в перфорациях из АРМИТЦ не указано поле: {f}")
             perf_df[f] = -1
             perf_df[f] = perf_df[f].astype(int)
-
+    perf_df.dropna(subset=['well', 'date', 'top', 'bot', 'type'], inplace=True)
     try:
         perf_df['date'] = perf_df['date'].dt.date
     except AttributeError:
@@ -82,8 +98,9 @@ def base_reader(path):
         lambda x: get_type(x['type'], x['type_perf'], x['layer']),
         axis=1)
     perf_df.reset_index(drop=True, inplace=True)
-    perf = to_dict(perf_df, ['type', 'date', 'top', 'bot'], 'well')
-    return perf
+    perf_df['top'] = perf_df['top'].astype(float)
+    perf_df['bot'] = perf_df['bot'].astype(float)
+    return perf_df
 
 
 def get_type(type_str, type_perf, layer):

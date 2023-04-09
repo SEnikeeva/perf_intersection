@@ -1,5 +1,8 @@
 import logging
 
+import pandas as pd
+from tqdm import tqdm
+
 
 # бинарный поиск индекса для вставки элемента в отсортированный массив
 def bisect_left(a, x, lo=0, hi=None, param='bot'):
@@ -16,29 +19,32 @@ def bisect_left(a, x, lo=0, hi=None, param='bot'):
     return lo
 
 
-def get_layers(well_, perf_ints, dates):
-    layers = {}
-    perfs, all_dates = get_perf(perf_ints, well_, dates[0])
-    if len(all_dates) == 0:
-        return {d: set() for d in dates}
-    else:
-        prev_layers = set(perfs)
-        layers[dates[0]] = prev_layers
-        for date in dates[1:]:
-            if dates[0] > all_dates[0]:
-                perfs = prev_layers
-            else:
-                next_date = None
-                for i, d in enumerate(all_dates[1:]):
-                    if dates[0] > d:
-                        next_date = all_dates[i - 1]
-                        break
-                if (next_date is not None) and (date < next_date):
-                    perfs = prev_layers
+def get_intervals_df(perf_ints, dates):
+    intervals_df = []
+    for well in tqdm(perf_ints.keys()):
+        perfs, all_dates = get_perf(perf_ints, well, dates[0])
+        if len(all_dates) == 0:
+            continue
+        else:
+            prev_perfs = perfs
+            if len(prev_perfs) > 0:
+                intervals_df.extend(prev_perfs)
+            for date in dates[1:]:
+                if dates[0] > all_dates[0]:
+                    perfs = prev_perfs
                 else:
-                    perfs, dates_perf = get_perf(perf_ints, well_, date)
-            layers[date] = set(perfs)
-        return layers
+                    next_date = None
+                    for i, d in enumerate(all_dates[1:]):
+                        if dates[0] > d:
+                            next_date = all_dates[i - 1]
+                            break
+                    if (next_date is not None) and (date < next_date):
+                        perfs = prev_perfs
+                    else:
+                        perfs, dates_perf = get_perf(perf_ints, well, date)
+                if len(perfs) > 0:
+                    intervals_df.extend(perfs)
+    return pd.DataFrame(intervals_df)
 
 
 def get_perf(perf_ints, well, date):
@@ -96,7 +102,7 @@ def get_perf(perf_ints, well, date):
         idx_t = bisect_left(act_perf_well, top)
         if idx_t == len(act_perf_well):
             act_perf_well.append({'well': well, 'top': top, 'bot': bot,
-                                  'perf_type': perf_type})
+                                  'perf_type': perf_type, 'date': date})
         else:
             shift = 0
             if act_perf_well[idx_t]['top'] > top:
@@ -107,7 +113,7 @@ def get_perf(perf_ints, well, date):
                         act_perf_well.insert(idx_t,
                                              {'well': well, 'top': top,
                                               'bot': bot,
-                                              'perf_type': perf_type})
+                                              'perf_type': perf_type, 'date': date})
                         shift += 1
                 else:
                     act_perf_well.insert(idx_t,
@@ -115,7 +121,7 @@ def get_perf(perf_ints, well, date):
                                           'bot': bot if
                                           act_perf_well[idx_t]['top'] > bot else
                                           act_perf_well[idx_t]['top'],
-                                          'perf_type': perf_type})
+                                          'perf_type': perf_type, 'date': date})
                     shift += 1
             idx_b = bisect_left(act_perf_well, bot, param='top')
             idx_t += shift
@@ -134,20 +140,21 @@ def get_perf(perf_ints, well, date):
                         if i == end - 1:
                             if bot > act_perf_well[i]['bot']:
                                 to_append.append(dict(well=well, top=act_perf_well[i]['bot'],
-                                                      bot=bot, perf_type=perf_type, idx=i + shift))
+                                                      bot=bot, perf_type=perf_type, date=date, idx=i + shift))
                                 shift += 1
 
                         else:
                             to_append.append(dict(well=well, top=act_perf_well[i]['bot'],
                                                   bot=act_perf_well[i + 1]['top'],
-                                                  perf_type=perf_type, idx=i + shift))
+                                                  perf_type=perf_type, date=date, idx=i + shift))
                             shift += 1
                 for el in to_append:
                     act_perf_well.insert(el['idx'],
                                          {'well': el['well'],
                                           'top': el['top'],
                                           'bot': el['bot'],
-                                          'perf_type': el['perf_type']
+                                          'perf_type': el['perf_type'],
+                                          'date': date
                                           }
                                          )
                 if (idx_b == len(act_perf_well)) and (act_perf_well[-1]['bot'] < bot):
@@ -157,6 +164,7 @@ def get_perf(perf_ints, well, date):
                         act_perf_well.append({'well': well,
                                               'top': act_perf_well[-1]['bot'],
                                               'bot': bot,
-                                              'perf_type': perf_type})
+                                              'perf_type': perf_type,
+                                              'date': date})
             idx += 1
-    return act_perf_well
+    return act_perf_well, dates

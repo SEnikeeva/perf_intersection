@@ -2,6 +2,8 @@ import json
 import logging
 import sys
 
+from dateutil import parser
+
 from helpers.utils import replace_slash
 
 
@@ -21,6 +23,9 @@ class Config:
         self.conf = read(config_path)
         self.base_perf_path = self.load(self.conf, "base_perf_path")
         self.model_perf_path = self.load(self.conf, "model_perf_path")
+        self.min_date = self.load(self.conf, "min_date")
+        self.max_date = self.load(self.conf, "max_date")
+        self.grid_delta = self.load(self.conf, "grid_delta")
 
     def load(self, conf, param):
         if 'paths' in param:
@@ -30,13 +35,20 @@ class Config:
                     return None
                 paths = [replace_slash(f"{self.input_folder}\\{path}") for path in paths]
             return paths
-        if 'path' in param:
+        elif 'path' in param:
             path = conf.get(param)
             if path is not None:
                 if path == '':
                     return None
                 path = replace_slash(f"{self.input_folder}\\{path}")
             return path
+        elif 'date' in param:
+            param = conf.get(param)
+            if param is None or param == '':
+                return None
+            else:
+                str_date = parser.parse(param, dayfirst=True).date()
+                return str_date
         else:
             param = conf.get(param)
             if hasattr(param, '__len__') and len(param) == 0:

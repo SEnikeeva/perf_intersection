@@ -6,7 +6,6 @@ from helpers.configs import Config
 from helpers.utils import replace_slash, clear_out_folder
 from reader import base_reader, model_reader
 
-
 if __name__ == '__main__':
     input_folder = "input_data"
     out_folder = "output_data"
@@ -24,4 +23,4 @@ if __name__ == '__main__':
     base_perf = base_reader(cfg.base_perf_path)
     model_perf = model_reader(cfg.model_perf_path)
 
-    difference = diff_detection(model_perf, base_perf)
+    diff_detection(model_perf, base_perf, out_folder, cfg)
