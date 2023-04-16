@@ -104,7 +104,9 @@ def diff_detection(model_perf, base_perf, output_folder, cfg):
         mrg = pd.DataFrame(mrg_dict)
         mrg = mrg.sort_values(by=['date', 'well', 'top_model', 'top_armits'])
 
-        mrg.set_index(['date', 'well']).to_excel(out_path)
+        mrg[['date', 'well', 'top_model', 'bot_model',
+             'perf_type_model', 'top_armits',
+             'bot_armits', 'perf_type_armits', 'level']].to_excel(out_path, index=False)
 
         intersection.to_excel(intersec_path, index=False)
 
@@ -123,7 +125,6 @@ def diff_detection(model_perf, base_perf, output_folder, cfg):
     min_date = cfg.min_date if cfg.min_date is not None else min(base_perf_history['date'].min(),
                                                                  model_perf_history['date'].min())
     max_date = cfg.max_date if cfg.max_date is not None else model_perf_history['date'].max()
-    print(min_date, max_date)
     model_perf_history = model_perf_history[model_perf_history['date'].between(min_date, max_date)]
     base_perf_history = base_perf_history[base_perf_history['date'].between(min_date, max_date)]
 

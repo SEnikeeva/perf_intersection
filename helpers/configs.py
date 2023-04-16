@@ -27,6 +27,8 @@ class Config:
         self.max_date = self.load(self.conf, "max_date")
         self.grid_delta = self.load(self.conf, "grid_delta")
 
+        self.grid_delta = 0 if self.grid_delta is None else self.grid_delta
+
     def load(self, conf, param):
         if 'paths' in param:
             paths = conf.get(param)

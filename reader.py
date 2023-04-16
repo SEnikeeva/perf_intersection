@@ -5,7 +5,7 @@ import pandas as pd
 from dateutil import parser
 
 from helpers.utils import is_contains, well_renaming, transliteration
-from services.read_service import read_df, processing_df
+from helpers.read_service import read_df, processing_df
 
 
 def model_reader(path):
